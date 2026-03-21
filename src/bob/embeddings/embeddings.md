@@ -1,0 +1,61 @@
+# Input
+- Text is split into tokens and mapped to token ids before entering the transformer
+	- tokenize raw text by splitting into tokens according to rules
+	- Let $V$ be the size of the vocab, each token is mapped to an integer id in $\{0,\dots,V-1\}$
+- in training, multiple full length context sequences are processed together as a batch
+	- input token ids form a matrix $input \in \{0,\dots,V-1\}^{B \times C}$
+	- batch size $B$
+	- context window size $C$
+	- row $b$ is the $b$th entry/training sequence in the batch with length $C$
+- For inference, $B=1$ and for a prompt with length $L\leq C$, the input tokens are $$input \in \{0,\dots,V-1\}^{1\times L}$$
+- in decoder only next token prediction training
+	- model receives input sequence $(t_0,\dots,t_{C-1})$
+	- target sequence is $(t_1,\dots,t_{C})$
+	- for position $j \in \{0,\dots,C-1\}$, the model receives tokens $(t_0,\dots,t_j)$ and is trained to predict $t_{j+1}$
+# Tokenization
+- frameworks
+	- sentencepiece - framework that supports BPE and unigram
+	- tiktoken - openai's BPE implementation
+-  BPE
+	- vocabulary is created by merging small tokens
+		- begin with byte/character level tokens
+		- repeatedly merge most frequent adjacent pairs in training data until target vocab size is reached
+	- results in an ordered list of learned merge rules
+	- to tokenize a new word, begin with base symbols and apply merge rules in their learned order
+	- tokenization via greedy application of previously learned merges
+- WordPiece - uses longest match lookup against a learned vocab
+	- builds a vocabulary by merging small tokens by frequency 
+- unigram - begin with a large candidate vocab, prune using probabilities computed via expectation maximization
+# Embeddings
+- Each token id is mapped to a vector in $\mathbb{R}^{\mathtt{d\_model}}$ via the token embedding table $E\in \mathbb{R}^{V\times \mathtt{d\_model}}$
+	- row $E[i]\in \mathbb{R}^{\mathtt{d\_model}}$ is the learned embedding vector for token id $i$ in the vocabulary
+- Apply token row lookups to every token in $input \in \{0,\dots,V-1\}^{B\times C}$ to obtain an embedding tensor $$X \in \mathbb{R}^{\mathtt{B\times C \times d\_model}}$$
+- Token representation for batch $b$ position $j$ is `X[b][j]`
+- First hidden state passed into the first transformer block has shape $$X_0 \in \mathbb{R}^{\mathtt{B\times C \times d\_model}}$$
+# Positional Information
+- self attention is permutation equivariant - token order does not affect the result
+- position information can be attached at embedding layer or at self attention layer with RoPE
+	- Modern LLMs usually use RoPE
+	- historically additive learned absolute embeddings and sinusoidal embeddings in the embedding layer have been used
+- Learned Absolute Additive positional embeddings 
+	- use a learned parameter matrix $P \in \mathbb{R}^{\mathtt{C \times d\_model}}$
+	- row $P[j]\in  \mathbb{R}^{\mathtt{d\_model}}$ is the learned embedding for position $j$
+	- Add the positional embeddings to their corresponding token representation rows $X_0 = X + P$
+- sinusoidal positional embeddings - fixed values are used, nothing is learned
+	- define a deterministic vector $s_j\in \mathbb{R}^{\mathtt{d\_model}}$ for each position $j$ with a fixed formula using sin/cosine
+	- $S \in \mathbb{R}^{C \times \mathtt{d\_model}}$ is the matrix of fixed sinusoidal vectors
+	- Add the fixed positional embeddings to their corresponding rows $X_0 = X + S$
+## RoPE - Rotary Positional Embeddings
+- Rotation - linear map that changes direction of a vector without changing length
+- Rotation in 2d by an angle $\theta$ of a pair $(a,b)$ is $$(a',b') = (a\cos{\theta} - b\sin{\theta}, a\sin{\theta} + b\cos{\theta})$$
+- RoPE acts on query and key vectors for a position $j$, rotating each feature coordinate pair within the vectors
+- Start with $q^j,k^j   \in \mathbb{R}^{\mathtt{d\_head}}$
+	- $\mathtt{d\_head}$ needs to be even
+- Split the coordinates into $\mathtt{d\_head}/2$ pairs 
+	- $((q^j_1, q^j_2),(q^j_3, q^j_4),\dots, (q^j_{\mathtt{d\_head}-1}, q^j_{\mathtt{d\_head}}))$
+	- $((k^j_1, k^j_2),(k^j_3, k^j_4),\dots, (k^j_{\mathtt{d\_head}-1}, k^j_{\mathtt{d\_head}}))$
+- Rotates each coordinate pair by a deterministic $\theta$ based on some fixed function of the position $j$ and the pair index $m \in \{0,\dots, \frac{\mathtt{d\_head}}{2}-1\}$
+- $\theta_{j,m} = j\omega_m$ where $\omega_m$ is the frequency assigned to pair $m$
+	- commonly $\omega_m = 10000^{-\frac{2(m-1)}{\mathtt{d\_head}}}$
+- for each pair $m$, rotate $(q^j_{2m+1},q^j_{2m+2})$ and $(k^j_{2m+1},k^j_{2m+2})$ by angle $\theta_{j,m}$
+

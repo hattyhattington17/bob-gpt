@@ -38,3 +38,4 @@ configs/local/
 .env
 
 planning/
+.claude

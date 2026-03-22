@@ -18,7 +18,6 @@ class ModelConfig:
     rope_theta: float = 10000.0
     norm_eps: float = 1e-6
     tie_embeddings: bool = True
-    bias: bool = False
 
     @property
     def d_head(self) -> int:

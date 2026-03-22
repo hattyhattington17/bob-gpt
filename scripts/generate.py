@@ -1,12 +1,21 @@
 
+import torch
+
 from bob.config import ModelConfig
+from bob.model.transformer import Bob
 from bob.tokenizer.tokenizer import Tokenizer
 
-tok = Tokenizer.from_text("abcd")
+tokenizer = Tokenizer.from_text("abcddefg")
 
-print(tok.encode("abc")) # [0, 1, 2]
-print(tok.vocab_size)
-print(tok.decode([0, 1, 2]))  # "abc"
+print("vocab_size", tokenizer.vocab_size)
 
 config = ModelConfig.from_yaml("configs/nano.yaml")
-print(config.d_head)
+assert config.vocab_size == tokenizer.vocab_size, "vocab size in config must match tokenizer vocab size"
+print("d_head", config.d_head)
+
+
+input_text = "abcabcab"
+token_ids = tokenizer.encode(input_text)
+token_ids = torch.tensor([token_ids])  
+model = Bob(config)
+model.forward(input)

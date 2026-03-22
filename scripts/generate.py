@@ -1,21 +1,39 @@
+import argparse
 
 import torch
 
 from bob.config import ModelConfig
+from bob.inference.generate import generate
 from bob.model.transformer import Bob
 from bob.tokenizer.tokenizer import Tokenizer
+CONFIG_PATH = "configs/nano.yaml"
+MAX_NEW_TOKENS = 100
 
-tokenizer = Tokenizer.from_text("abcddefg")
+tokenizer = Tokenizer.from_text("abcddefgh")
+print("initialized tokenizer with vocabulary size:", tokenizer.vocab_size)
 
-print("vocab_size", tokenizer.vocab_size)
-
-config = ModelConfig.from_yaml("configs/nano.yaml")
+config = ModelConfig.from_yaml(CONFIG_PATH)
 assert config.vocab_size == tokenizer.vocab_size, "vocab size in config must match tokenizer vocab size"
-print("d_head", config.d_head)
 
+ 
+ 
+parser = argparse.ArgumentParser()
+parser.add_argument("--prompt", required=True) 
+args = parser.parse_args()
 
-input_text = "abcabcab"
-token_ids = tokenizer.encode(input_text)
-token_ids = torch.tensor([token_ids])  
-model = Bob(config)
-model.forward(input)
+# move the model to the appropriate device (GPU if available, otherwise CPU)
+device = "mps" if torch.backends.mps.is_available() else "cpu"
+model = Bob(config).to(device)
+
+# run the model in eval mode (disables dropout, etc)
+model.eval()
+
+# tokenize the prompt
+token_ids = tokenizer.encode(args.prompt)
+print("input token ids:", token_ids)
+
+output_ids = generate(model, token_ids, MAX_NEW_TOKENS, config.max_seq_len)
+print(tokenizer.decode(output_ids))
+# print(f"Parameters: {model.count_parameters():,}")
+
+#   Note: count_parameters still needs to be added to Bob.

@@ -35,9 +35,12 @@ class Bob(torch.nn.Module):
         hidden_state = self.embeddings(input)
         print("embeddings shape:", hidden_state.shape)
 
+        # load the cached RoPE values
+        cos, sin = self.rope(hidden_state.shape[1])
+
         # transformer layers
         for layer in self.layers:
-            hidden_state = layer(hidden_state)
+            hidden_state = layer(hidden_state,cos,sin)
 
         # final norm
         hidden_state = self.norm(hidden_state)
@@ -57,12 +60,17 @@ class TransformerBlock(torch.nn.Module):
         self.norm2 = torch.nn.Identity()
         self.self_attn = SelfAttention(config)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
+        """
+            x in R^{B, T, d_model}
+            cos, sin in R^{T, d_head / 2} - cached rotary embedding values for the current sequence length
+            returns result in R^{B, T, d_model}
+        """
         # first normalization  
         u = self.norm1(x)
 
         # self attention
-        A = self.self_attn(u)
+        A = self.self_attn(u, cos, sin)
         # residual connection
         y = x + A
 

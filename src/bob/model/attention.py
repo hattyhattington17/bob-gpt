@@ -3,6 +3,7 @@
 import torch
 
 from bob.config import ModelConfig
+from bob.model.rope import apply_rotary_emb
 
 
 class SelfAttention(torch.nn.Module):
@@ -23,8 +24,11 @@ class SelfAttention(torch.nn.Module):
         # W_out in R^{(n_heads * d_head) x d_model} 
         self.W_out = torch.nn.Linear(config.n_heads * config.d_head, config.d_model, bias=False)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # input is a normalized hidden state tensor x in R^{B x T x d_model}
+    def forward(self, x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
+        """"
+            input is a normalized hidden state tensor x in R^{B x T x d_model} and
+            cos, sin in R^{T, d_head / 2} - cached rotary embedding values for the current sequence length
+        """
 
         # project into query, key, and value tensors in R^{B x T x (n_heads * d_head)}   
         # x @ W_q : (B x T x d_model) @ (d_model x (n_heads * d_head)) = Q in R^{B x T x (n_heads * d_head)}   
@@ -43,7 +47,9 @@ class SelfAttention(torch.nn.Module):
         Key = Key.transpose(1, 2)
         Value = Value.transpose(1, 2)
 
-        # todo: apply RoPE
+        # apply RoPE
+        Query = apply_rotary_emb(Query, cos, sin)
+        Key = apply_rotary_emb(Key, cos, sin)
         
         # compute self attention scores
         # for each head h and position j, we have T scores for how much position i in [T] is relevant to position j 

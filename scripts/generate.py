@@ -18,7 +18,7 @@ assert config.vocab_size == tokenizer.vocab_size, "vocab size in config must mat
  
  
 parser = argparse.ArgumentParser()
-parser.add_argument("--prompt", required=True) 
+parser.add_argument("--prompt", required=False) 
 args = parser.parse_args()
 
 # move the model to the appropriate device (GPU if available, otherwise CPU)
@@ -29,7 +29,7 @@ model = Bob(config).to(device)
 model.eval()
 
 # tokenize the prompt
-token_ids = tokenizer.encode(args.prompt)
+token_ids = tokenizer.encode("aaaaaaaabc")
 print("input token ids:", token_ids)
 
 output_ids = generate(model, token_ids, MAX_NEW_TOKENS, config.max_seq_len)

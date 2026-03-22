@@ -1,6 +1,7 @@
 import torch
 
 from bob.config import ModelConfig
+from bob.model.attention import SelfAttention
 class Bob(torch.nn.Module):
     """ GPT Language Model """
 
@@ -49,7 +50,9 @@ class TransformerBlock(torch.nn.Module):
     def __init__(self, config: ModelConfig):
         super().__init__()
         self.config = config
+        self.self_attn = SelfAttention(config)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # identity map 
-        return x
+        return self.self_attn(x)
+      

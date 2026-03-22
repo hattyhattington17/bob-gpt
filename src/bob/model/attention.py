@@ -43,6 +43,8 @@ class SelfAttention(torch.nn.Module):
         Key = Key.transpose(1, 2)
         Value = Value.transpose(1, 2)
 
+        # todo: apply RoPE
+        
         # compute self attention scores
         # for each head h and position j, we have T scores for how much position i in [T] is relevant to position j 
         # score_h(j,i) = Q[b,h,j] dot K[b,h,i] / sqrt(d_head)

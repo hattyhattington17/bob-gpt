@@ -2,12 +2,14 @@ import torch
 
 from bob.config import ModelConfig
 from bob.model.attention import SelfAttention
+from bob.model.rope import RoPE
 class Bob(torch.nn.Module):
     """ GPT Language Model """
 
     def __init__(self, config: ModelConfig):
         super().__init__()
         self.config = config
+        self.rope = RoPE(config.d_head, config.max_seq_len, config.rope_theta)
         self.embeddings = torch.nn.Embedding(config.vocab_size, config.d_model)
         self.layers = torch.nn.ModuleList([
             TransformerBlock(config) for _ in range(config.n_layers)
@@ -50,9 +52,25 @@ class TransformerBlock(torch.nn.Module):
     def __init__(self, config: ModelConfig):
         super().__init__()
         self.config = config
+        # placeholder for RMS norm
+        self.norm1 = torch.nn.Identity()
+        self.norm2 = torch.nn.Identity()
         self.self_attn = SelfAttention(config)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # identity map 
-        return self.self_attn(x)
+        # first normalization  
+        u = self.norm1(x)
+
+        # self attention
+        A = self.self_attn(u)
+        # residual connection
+        y = x + A
+
+        # second normalization  
+        v = self.norm2(y)
+        # MLP
+        # m = MLP(v)
+        # result = y + m
+        # residual connection 
+        return v
       

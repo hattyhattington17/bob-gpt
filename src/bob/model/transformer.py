@@ -2,7 +2,10 @@ import torch
 
 from bob.config import ModelConfig
 from bob.model.attention import SelfAttention
+from bob.model.rmsnorm import RMSNorm
 from bob.model.rope import RoPE
+
+
 class Bob(torch.nn.Module):
     """ GPT Language Model """
 
@@ -16,7 +19,7 @@ class Bob(torch.nn.Module):
         ])
 
         # placeholder for RMS norm
-        self.norm = torch.nn.Identity()
+        self.norm = RMSNorm(config.d_model, config.norm_eps)
 
         self.lm_head = torch.nn.Linear(config.d_model, config.vocab_size, bias=False)
         if  (config.tie_embeddings):
@@ -56,8 +59,8 @@ class TransformerBlock(torch.nn.Module):
         super().__init__()
         self.config = config
         # placeholder for RMS norm
-        self.norm1 = torch.nn.Identity()
-        self.norm2 = torch.nn.Identity()
+        self.norm1 = RMSNorm(config.d_model, config.norm_eps)
+        self.norm2 = RMSNorm(config.d_model, config.norm_eps)
         self.self_attn = SelfAttention(config)
 
     def forward(self, x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:

@@ -6,8 +6,9 @@ from bob.config import ModelConfig
 from bob.inference.generate import generate
 from bob.model.transformer import Bob
 from bob.tokenizer.tokenizer import Tokenizer
+
 CONFIG_PATH = "configs/nano.yaml"
-MAX_NEW_TOKENS = 100
+MAX_NEW_TOKENS = 10
 
 tokenizer = Tokenizer.from_text("abcddefgh")
 print("initialized tokenizer with vocabulary size:", tokenizer.vocab_size)
@@ -29,7 +30,7 @@ model = Bob(config).to(device)
 model.eval()
 
 # tokenize the prompt
-token_ids = tokenizer.encode("aaaaaaaabc")
+token_ids = tokenizer.encode("abc")
 print("input token ids:", token_ids)
 
 output_ids = generate(model, token_ids, MAX_NEW_TOKENS, config.max_seq_len)

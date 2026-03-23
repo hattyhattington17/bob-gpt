@@ -26,7 +26,7 @@ def generate(
     x = torch.tensor([token_ids], dtype=torch.long).to(next(model.parameters()).device)
 
     for _ in range(max_new_tokens):
-        # take last max_seq_len tokens from first batch as input to the model
+        # take last max_seq_len tokens as input to the model
         x = x[:, -max_seq_len:]
         # run the model to get logits for all positions in the sequence
         logits = model(x)

@@ -10,31 +10,34 @@ from bob.tokenizer.tokenizer import Tokenizer
 CONFIG_PATH = "configs/nano.yaml"
 MAX_NEW_TOKENS = 10
 
-tokenizer = Tokenizer.from_text("abcddefgh")
-print("initialized tokenizer with vocabulary size:", tokenizer.vocab_size)
 
-config = ModelConfig.from_yaml(CONFIG_PATH)
-assert config.vocab_size == tokenizer.vocab_size, "vocab size in config must match tokenizer vocab size"
+def main() -> None:
+    tokenizer = Tokenizer.from_text("abcddefgh")
+    print("initialized tokenizer with vocabulary size:", tokenizer.vocab_size)
 
- 
- 
-parser = argparse.ArgumentParser()
-parser.add_argument("--prompt", required=False) 
-args = parser.parse_args()
+    config = ModelConfig.from_yaml(CONFIG_PATH)
+    assert config.vocab_size == tokenizer.vocab_size, (
+        "vocab size in config must match tokenizer vocab size"
+    )
 
-# move the model to the appropriate device (GPU if available, otherwise CPU)
-device = "mps" if torch.backends.mps.is_available() else "cpu"
-model = Bob(config).to(device)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--prompt", required=False)
+    args = parser.parse_args()
 
-# run the model in eval mode (disables dropout, etc)
-model.eval()
+    # move the model to the appropriate device (GPU if available, otherwise CPU)
+    device = "mps" if torch.backends.mps.is_available() else "cpu"
+    model = Bob(config).to(device)
 
-# tokenize the prompt
-token_ids = tokenizer.encode("abc")
-print("input token ids:", token_ids)
+    # run the model in eval mode (disables dropout, etc)
+    model.eval()
 
-output_ids = generate(model, token_ids, MAX_NEW_TOKENS, config.max_seq_len)
-print(tokenizer.decode(output_ids))
-# print(f"Parameters: {model.count_parameters():,}")
+    # tokenize the prompt
+    token_ids = tokenizer.encode(args.prompt or "abc")
+    print("input token ids:", token_ids)
 
-#   Note: count_parameters still needs to be added to Bob.
+    output_ids = generate(model, token_ids, MAX_NEW_TOKENS, config.max_seq_len)
+    print(tokenizer.decode(output_ids))
+
+
+if __name__ == "__main__":
+    main()

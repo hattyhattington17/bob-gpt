@@ -43,37 +43,37 @@ class RoPE(torch.nn.Module):
 
 def apply_rotary_emb(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
     """ 
-    Apply RoPE to a Query or Key tensor in R^{B, H, C, d_head} 
+    Apply RoPE to a Query or Key tensor in R^{B, H, T, d_head} 
     using cached cos and sin buffers in R^{T, d_head/2} 
     """
     
     # split input into consecutive coordinate pairs
     # x1 = even indices (0, 2, 4, ...), x2 = odd indices (1, 3, 5, ...)
-    # keep all preceding dimensions (B, H, C) 
+    # keep all preceding dimensions (B, H, T) 
 
     # split only the last dimension d_head into pairs
-    x1 = x[..., ::2]   # (B, H, C, d_head / 2)
+    x1 = x[..., ::2]   # (B, H, T, d_head / 2)
     # offset by 1 to get odd indices
-    x2 = x[..., 1::2]  # (B, H, C, d_head / 2)
+    x2 = x[..., 1::2]  # (B, H, T, d_head / 2)
 
     # each pair is x1[i], x2[i] for i in {0, ..., d_head/2 - 1}
     # rotate each pair by theta for the position j and pair index i
     # sin and cos buffers are already indexed by position j and pair index i, so we can just broadcast multiply
     
     # reshape cos/sin to broadcast over batch and head dims
-    cos = cos.unsqueeze(0).unsqueeze(0)  # (1, 1, C, d_head // 2)
-    sin = sin.unsqueeze(0).unsqueeze(0)  # (1, 1, C, d_head // 2)
+    cos = cos.unsqueeze(0).unsqueeze(0)  # (1, 1, T, d_head // 2)
+    sin = sin.unsqueeze(0).unsqueeze(0)  # (1, 1, T, d_head // 2)
 
     # apply rotation: (a cosθ - b sinθ, a sinθ + b cosθ)
     r1 = x1 * cos - x2 * sin
     r2 = x1 * sin + x2 * cos
 
-    # r1, r2 shape: (B, H, C, d_head / 2)
+    # r1, r2 shape: (B, H, T, d_head / 2)
     # stack along a new last dimension to pair each rotated coordinate back together
-    # (B, H, C, d_head / 2, 2) — last dim is [r1_m, r2_m] for each pair m
+    # (B, H, T, d_head / 2, 2) — last dim is [r1_m, r2_m] for each pair m
     stacked = torch.stack([r1, r2], dim=-1)
 
     # flatten the last two dims to merge pairs back into a flat vector
-    # (B, H, C, d_head / 2, 2) → (B, H, C, d_head)
+    # (B, H, T, d_head / 2, 2) → (B, H, T, d_head)
     # result has rotated pairs interleaved: (r1_0, r2_0, r1_1, r2_1, ...)
     return stacked.flatten(-2)

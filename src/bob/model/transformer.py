@@ -4,6 +4,7 @@ import torch
 
 from bob.config import ModelConfig
 from bob.model.attention import SelfAttention
+from bob.model.mlp import MLP
 from bob.model.rmsnorm import RMSNorm
 from bob.model.rope import RoPE
 
@@ -19,7 +20,7 @@ class Bob(torch.nn.Module):
         self.layers = torch.nn.ModuleList(
             [TransformerBlock(config) for _ in range(config.n_layers)]
         )
- 
+
         self.norm = RMSNorm(config.d_model, config.norm_eps)
 
         self.lm_head = torch.nn.Linear(config.d_model, config.vocab_size, bias=False)
@@ -34,8 +35,8 @@ class Bob(torch.nn.Module):
 
         Returns:
             Logits tensor with shape (B, T, vocab_size).
-        """  
-        hidden_state = self.embeddings(x)  # (B, T, d_model) 
+        """
+        hidden_state = self.embeddings(x)  # (B, T, d_model)
 
         cos, sin = self.rope(hidden_state.shape[1])  # cos, sin each (T, d_head // 2)
 
@@ -44,7 +45,7 @@ class Bob(torch.nn.Module):
             hidden_state = layer(hidden_state, cos, sin)
 
         hidden_state = self.norm(hidden_state)  # (B, T, d_model)
-        logits = self.lm_head(hidden_state)  # (B, T, vocab_size) 
+        logits = self.lm_head(hidden_state)  # (B, T, vocab_size)
         return logits
 
 
@@ -57,6 +58,7 @@ class TransformerBlock(torch.nn.Module):
         self.norm1 = RMSNorm(config.d_model, config.norm_eps)
         self.norm2 = RMSNorm(config.d_model, config.norm_eps)
         self.self_attn = SelfAttention(config)
+        self.mlp = MLP(config)
 
     def forward(self, x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
         """Apply self-attention and normalization with residual connections.
@@ -80,7 +82,8 @@ class TransformerBlock(torch.nn.Module):
         # second normalization
         v = self.norm2(y)  # (B, T, d_model)
         # MLP
-        # m = MLP(v)
-        # result = y + m
+        m = self.mlp(v)
+
         # residual connection
-        return v
+        result = y + m
+        return result

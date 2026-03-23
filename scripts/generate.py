@@ -1,3 +1,5 @@
+"""Main script to run the model and generate text from a prompt."""
+
 import argparse
 from pathlib import Path
 

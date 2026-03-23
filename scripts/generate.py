@@ -20,8 +20,7 @@ def main() -> None:
     parser.add_argument("--prompt", required=False)
     args = parser.parse_args()
 
-    tokenizer = Tokenizer.from_text("abcdefgh")
-    print("initialized tokenizer with vocabulary size:", tokenizer.vocab_size)
+    tokenizer = Tokenizer.from_text("abcdefghijklmnopqrstuvwxyz")
 
     config = ModelConfig.from_yaml(CONFIG_PATH)
     assert config.vocab_size == tokenizer.vocab_size, (
@@ -34,13 +33,13 @@ def main() -> None:
 
     # run the model in eval mode (disables dropout, etc)
     model.eval()
-
+    prompt = args.prompt or "abc"
     # tokenize the prompt
-    token_ids = tokenizer.encode(args.prompt or "abc")
-    print("input token ids:", token_ids)
+    token_ids = tokenizer.encode(prompt)
+    print("you: ", prompt)
 
     output_ids = generate(model, token_ids, MAX_NEW_TOKENS, config.max_seq_len, device)
-    print(tokenizer.decode(output_ids))
+    print("bob: ", tokenizer.decode(output_ids))
 
 
 if __name__ == "__main__":

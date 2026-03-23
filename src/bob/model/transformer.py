@@ -1,3 +1,5 @@
+"""Bob the transformer model."""
+
 import torch
 
 from bob.config import ModelConfig
@@ -7,9 +9,9 @@ from bob.model.rope import RoPE
 
 
 class Bob(torch.nn.Module):
-    """GPT Language Model"""
+    """GPT language model."""
 
-    def __init__(self, config: ModelConfig):
+    def __init__(self, config: ModelConfig) -> None:
         super().__init__()
         self.config = config
         self.rope = RoPE(config.d_head, config.max_seq_len, config.rope_theta)
@@ -25,59 +27,58 @@ class Bob(torch.nn.Module):
             self.lm_head.weight = self.embeddings.weight
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Generate logits for the next token
-        x - tensor of token ids - shape (B, T) where B is batch size and T is sequence length
-        output - tensor of logits - shape (B, T, vocab_size)
-        """
-        print("batch size: B =", x.shape[0])
-        print("sequence length: T =", x.shape[1])
+        """Generate logits for the next token.
 
-        # embeddings - shape (B, T, d_model)
-        # use the embedding table shape vocab_size x d_model to map token ids to embeddings
-        hidden_state = self.embeddings(x)
-        print("embeddings shape:", hidden_state.shape)
+        Args:
+            x: Tensor of token ids with shape (B, T).
 
-        # load the cached RoPE values
-        cos, sin = self.rope(hidden_state.shape[1])
+        Returns:
+            Logits tensor with shape (B, T, vocab_size).
+        """  
+        hidden_state = self.embeddings(x)  # (B, T, d_model) 
 
-        # transformer layers
+        cos, sin = self.rope(hidden_state.shape[1])  # cos, sin each (T, d_head // 2)
+
+        # transformer layers: (B, T, d_model) throughout
         for layer in self.layers:
             hidden_state = layer(hidden_state, cos, sin)
 
-        # final norm
-        hidden_state = self.norm(hidden_state)
-        # map hidden state to logits - shape (B, T, vocab_size)
-        logits = self.lm_head(hidden_state)
-        print("logits shape:", logits.shape)
+        hidden_state = self.norm(hidden_state)  # (B, T, d_model)
+        logits = self.lm_head(hidden_state)  # (B, T, vocab_size) 
         return logits
 
 
 class TransformerBlock(torch.nn.Module):
-    """Transformer block"""
+    """Transformer block."""
 
-    def __init__(self, config: ModelConfig):
+    def __init__(self, config: ModelConfig) -> None:
         super().__init__()
- 
+
         self.norm1 = RMSNorm(config.d_model, config.norm_eps)
         self.norm2 = RMSNorm(config.d_model, config.norm_eps)
-        self.self_attn = SelfAttention(config.d_model, config.n_heads, config.d_head)
+        self.self_attn = SelfAttention(config)
 
     def forward(self, x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
-        """
-        x in R^{B, T, d_model}
-        cos, sin in R^{T, d_head / 2} - cached rotary embedding values for the current sequence length
-        returns result in R^{B, T, d_model}
+        """Apply self-attention and normalization with residual connections.
+
+        Args:
+            x: Hidden state, shape (B, T, d_model).
+            cos: Cached cosine values, shape (T, d_head // 2).
+            sin: Cached sine values, shape (T, d_head // 2).
+
+        Returns:
+            Output tensor, shape (B, T, d_model).
         """
         # first normalization
-        u = self.norm1(x)
+        u = self.norm1(x)  # (B, T, d_model)
 
         # self attention
-        A = self.self_attn(u, cos, sin)
+        a = self.self_attn(u, cos, sin)  # (B, T, d_model)
         # residual connection
-        y = x + A
+        y = x + a  # (B, T, d_model)
 
         # second normalization
-        v = self.norm2(y)
+        v = self.norm2(y)  # (B, T, d_model)
         # MLP
         # m = MLP(v)
         # result = y + m

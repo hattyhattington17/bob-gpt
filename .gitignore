@@ -32,10 +32,13 @@ data/
 # Config overrides (keep defaults, ignore local overrides)
 configs/local/
 
+# Claude Code (local/personal settings only)
+.claude/settings.local.json
+.claude/worktrees/
+
 # Misc
 .DS_Store
 *.env
 .env
 
-planning/
-.claude
+planning/ 

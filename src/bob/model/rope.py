@@ -19,7 +19,7 @@ class RoPE(torch.nn.Module):
         # compute frequency omega_m for each pair of coordinates m in {0, ..., (d_head/2) - 1}
         omegas = frequency_base ** (-torch.arange(0, d_head, 2) / d_head)  # (d_head // 2,)
 
-        positions = torch.arange(max_seq_len) # (max_seq_len,)
+        positions = torch.arange(max_seq_len)  # (max_seq_len,)
 
         # θ_{j,m} = j * ω_m for all positions j and pair indices m
         # outer product: (max_seq_len,) x (d_head // 2,)
@@ -27,8 +27,12 @@ class RoPE(torch.nn.Module):
 
         # precompute and store cos/sin for each theta
         # persistent=False: not learned params, recomputable from config, excluded from state_dict
-        self.register_buffer("rope_cos", thetas.cos(), persistent=False)  # (max_seq_len, d_head // 2)
-        self.register_buffer("rope_sin", thetas.sin(), persistent=False)  # (max_seq_len, d_head // 2)
+        self.register_buffer(
+            "rope_cos", thetas.cos(), persistent=False
+        )  # (max_seq_len, d_head // 2)
+        self.register_buffer(
+            "rope_sin", thetas.sin(), persistent=False
+        )  # (max_seq_len, d_head // 2)
 
     def forward(self, seq_len: int) -> tuple[torch.Tensor, torch.Tensor]:
         """Return cos and sin cache buffers sliced to the current sequence length.
@@ -53,7 +57,7 @@ def apply_rotary_emb(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> t
     # split input into consecutive coordinate pairs
     # x1 = even indices (0, 2, 4, ...), x2 = odd indices (1, 3, 5, ...)
     # keep all preceding dimensions (B, n_heads, T)
-    x1 = x[..., ::2]   # (B, n_heads, T, d_head // 2)
+    x1 = x[..., ::2]  # (B, n_heads, T, d_head // 2)
     x2 = x[..., 1::2]  # (B, n_heads, T, d_head // 2)
 
     # each pair is x1[i], x2[i] for i in {0, ..., d_head/2 - 1}

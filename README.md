@@ -19,7 +19,7 @@ uv run python scripts/generate.py --prompt "abcabc"
 - no biases in projections
 
 ## Todo 
-- Training loop
+- Training loop and evaluation
 - Flexible sampling strategies in next token prediction
 - Bytepair encoding tokenizer
 - Ability to load external model weights

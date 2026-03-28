@@ -8,7 +8,7 @@ from bob.config import ModelConfig
 class MLP(torch.nn.Module):
     """Multilayer perceptron/feed-forward network.
 
-    Transforms an individual positions hidden state independently via a gated feed forward network.
+    Transforms an individual position's hidden state independently via a gated feed forward network.
     Uses SiLU nonlinearity and a gated linear unit (GLU).
     """
 

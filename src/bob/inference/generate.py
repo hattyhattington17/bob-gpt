@@ -6,7 +6,7 @@ from bob.inference.sampler import greedy
 from bob.model.transformer import Bob
 
 
-# disable gradient tracking since we're only doing inference    
+# disable gradient tracking since we're only doing inference
 @torch.inference_mode()
 def generate(
     model: Bob,

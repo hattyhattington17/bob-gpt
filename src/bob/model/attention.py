@@ -22,16 +22,15 @@ class SelfAttention(torch.nn.Module):
 
         # W_out: weight shape (n_heads * d_head, d_model)
         self.W_out = torch.nn.Linear(config.n_heads * config.d_head, config.d_model, bias=False)
- 
-        # create a square matrix of ones keep the upper triangular part of the matrix (excluding 
+
+        # create a square matrix of ones keep the upper triangular part of the matrix (excluding
         # diagonal) set the rest to zero and convert to booleans
         # (max_seq_len, max_seq_len)
-        mask = torch.triu(torch.ones(config.max_seq_len, config.max_seq_len), diagonal=1).bool() 
+        mask = torch.triu(torch.ones(config.max_seq_len, config.max_seq_len), diagonal=1).bool()
 
         # register causal mask as buffer
-        self.register_buffer("causal_mask", mask, persistent=False)  
+        self.register_buffer("causal_mask", mask, persistent=False)
 
-        
     def forward(self, x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
         """Compute multi-head self-attention with causal masking.
 
@@ -72,7 +71,7 @@ class SelfAttention(torch.nn.Module):
 
         # apply causal mask
         T = scores.shape[-1]
-      
+
         # set upper triangular scores to -inf so that after softmax they become zero
         scores = scores.masked_fill(self.causal_mask[:T, :T], float("-inf"))  # (B, n_heads, T, T)
 
@@ -85,7 +84,9 @@ class SelfAttention(torch.nn.Module):
         # transpose back
         z = z.transpose(1, 2)  # (B, T, n_heads, d_head)
         # concatenate heads
-        z = z.reshape(z.shape[0], z.shape[1], self.n_heads * self.d_head)  # (B, T, n_heads * d_head)
+        z = z.reshape(
+            z.shape[0], z.shape[1], self.n_heads * self.d_head
+        )  # (B, T, n_heads * d_head)
         # apply learned output projection
         z = self.W_out(z)  # (B, T, d_model)
 

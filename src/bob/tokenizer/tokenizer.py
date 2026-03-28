@@ -3,7 +3,7 @@
 
 class Tokenizer:
     """Character-level tokenizer mapping characters to integer IDs."""
-    
+
     def __init__(self, chars: list[str]) -> None:
         """Initialize with list of all characters in the vocabulary."""
         self._char_to_id = {ch: i for i, ch in enumerate(chars)}

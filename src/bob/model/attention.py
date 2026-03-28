@@ -28,7 +28,8 @@ class SelfAttention(torch.nn.Module):
         # (max_seq_len, max_seq_len)
         mask = torch.triu(torch.ones(config.max_seq_len, config.max_seq_len), diagonal=1).bool()
 
-        # register causal mask as buffer
+        # register causal mask as buffer and add type annotation for Pylance
+        self.causal_mask: torch.Tensor
         self.register_buffer("causal_mask", mask, persistent=False)
 
     def forward(self, x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:

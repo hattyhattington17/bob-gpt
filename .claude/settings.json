@@ -3,7 +3,7 @@
     "pyright-lsp@claude-plugins-official": true
   },
   "hooks": {
-    "PostToolUse": [
+    "Stop": [
       {
         "matcher": "Write|Edit",
         "hooks": [

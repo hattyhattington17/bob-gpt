@@ -36,6 +36,7 @@ configs/local/
 .claude/settings.local.json
 .claude/worktrees/
 .claire/
+.worktrees/
 
 # Misc
 .DS_Store

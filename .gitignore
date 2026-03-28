@@ -35,6 +35,7 @@ configs/local/
 # Claude Code (local/personal settings only)
 .claude/settings.local.json
 .claude/worktrees/
+.claire/
 
 # Misc
 .DS_Store

@@ -35,17 +35,6 @@ Bob is a from-scratch GPT built with PyTorch. The model is a standard decoder-on
 
 **Scripts** (`scripts/generate.py`): Entry point. Detects MPS (Apple Silicon) and falls back to CPU.
 
-## Planning docs
-
-`planning/implementation.md` — Phase 1 (model architecture) plan and status.
-`planning/training.md` — Phase 3 (training loop) plan: scaffold → dataset → LR schedule → checkpointing.
-`notes/` — math reference notes for each module.
-
-# Feedback loop
-- after each change, run `uv run python scripts/generate.py --prompt "abcabc" ` to make sure the code still executes
-
 # Gotchas
 - pay close attention to precision in computations
-
-# Git conventions
-- 
+ 

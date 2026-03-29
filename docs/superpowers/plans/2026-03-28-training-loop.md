@@ -325,7 +325,7 @@ def test_build_dataloaders_returns_tokenizer(tmp_path: Path) -> None:
     data_file = tmp_path / "input.txt"
     data_file.write_text(text)
 
-    train_loader, val_loader, tokenizer = build_dataloaders(
+    train_loader, validation_loader, tokenizer = build_dataloaders(
         str(data_file), train_split=0.9, seq_len=8, batch_size=4
     )
 
@@ -338,14 +338,14 @@ def test_build_dataloaders_split_sizes(tmp_path: Path) -> None:
     data_file = tmp_path / "input.txt"
     data_file.write_text(text)
 
-    train_loader, val_loader, tokenizer = build_dataloaders(
+    train_loader, validation_loader, tokenizer = build_dataloaders(
         str(data_file), train_split=0.9, seq_len=4, batch_size=8
     )
 
     # train split has 900 tokens → 896 samples (900 - 4)
     assert len(train_loader.dataset) == 896  # type: ignore[arg-type]
     # val split has 100 tokens → 96 samples (100 - 4)
-    assert len(val_loader.dataset) == 96  # type: ignore[arg-type]
+    assert len(validation_loader.dataset) == 96  # type: ignore[arg-type]
 
 
 def test_build_dataloaders_batch_shape(tmp_path: Path) -> None:
@@ -417,7 +417,7 @@ def build_dataloaders(
     seq_len: int,
     batch_size: int,
 ) -> tuple[DataLoader[tuple[torch.Tensor, torch.Tensor]], DataLoader[tuple[torch.Tensor, torch.Tensor]], Tokenizer]:
-    """Read text, tokenize, split into train/val, return dataloaders and tokenizer.
+    """Read text, tokenize, split into train/validation, return dataloaders and tokenizer.
 
     Args:
         data_path: Path to text file.
@@ -426,7 +426,7 @@ def build_dataloaders(
         batch_size: Batch size for both loaders.
 
     Returns:
-        Tuple of (train_loader, val_loader, tokenizer).
+        Tuple of (train_loader, validation_loader, tokenizer).
     """
     text = Path(data_path).read_text()
     tokenizer = Tokenizer.from_text(text)
@@ -434,15 +434,15 @@ def build_dataloaders(
 
     split = int(len(ids) * train_split)
     train_ds = CharDataset(ids[:split], seq_len)
-    val_ds = CharDataset(ids[split:], seq_len)
+    validation_ds = CharDataset(ids[split:], seq_len)
 
     train_loader: DataLoader[tuple[torch.Tensor, torch.Tensor]] = DataLoader(
         train_ds, batch_size=batch_size, shuffle=True
     )
-    val_loader: DataLoader[tuple[torch.Tensor, torch.Tensor]] = DataLoader(
-        val_ds, batch_size=batch_size, shuffle=False
+    validation_loader: DataLoader[tuple[torch.Tensor, torch.Tensor]] = DataLoader(
+        validation_ds, batch_size=batch_size, shuffle=False
     )
-    return train_loader, val_loader, tokenizer
+    return train_loader, validation_loader, tokenizer
 ```
 
 - [ ] **Step 4: Add `chars` property to Tokenizer**
@@ -977,7 +977,7 @@ def train(model_config: ModelConfig, config: TrainingConfig, device: str) -> Non
 
     Builds dataloaders, saves vocab, constructs model + optimizer, resumes from
     the latest checkpoint if one exists, then trains for config.max_steps steps.
-    Logs train/val loss and a generated sample every eval_interval steps.
+    Logs train/validation loss and a generated sample every eval_interval steps.
     Saves a checkpoint every checkpoint_interval steps.
 
     Args:
@@ -985,7 +985,7 @@ def train(model_config: ModelConfig, config: TrainingConfig, device: str) -> Non
         config: Training hyperparameters.
         device: Torch device string, e.g. "cpu" or "mps".
     """
-    train_loader, val_loader, tokenizer = build_dataloaders(
+    train_loader, validation_loader, tokenizer = build_dataloaders(
         config.data_path, config.train_split, model_config.max_seq_len, config.batch_size
     )
     save_vocab(tokenizer.chars, config.checkpoint_dir)
@@ -1037,11 +1037,11 @@ def train(model_config: ModelConfig, config: TrainingConfig, device: str) -> Non
         optimizer.step()
 
         if (step + 1) % config.eval_interval == 0:
-            val_loss = _eval(model, val_loader, config.eval_steps, model_config.vocab_size, device)
-            sample = _sample(model, tokenizer, val_loader, model_config, device)
+            validation_loss = _eval(model, validation_loader, config.eval_steps, model_config.vocab_size, device)
+            sample = _sample(model, tokenizer, validation_loader, model_config, device)
             print(
                 f"step {step + 1:5d} | train_loss {loss.item():.4f} | "
-                f"val_loss {val_loss:.4f} | lr {lr:.2e} | {sample!r}"
+                f"validation_loss {validation_loss:.4f} | lr {lr:.2e} | {sample!r}"
             )
 
         if (step + 1) % config.checkpoint_interval == 0:
@@ -1050,7 +1050,7 @@ def train(model_config: ModelConfig, config: TrainingConfig, device: str) -> Non
 
 def _eval(
     model: Bob,
-    val_loader: DataLoader[tuple[torch.Tensor, torch.Tensor]],
+    validation_loader: DataLoader[tuple[torch.Tensor, torch.Tensor]],
     eval_steps: int,
     vocab_size: int,
     device: str,
@@ -1059,7 +1059,7 @@ def _eval(
     total_loss = 0.0
     count = 0
     with torch.inference_mode():
-        for x, y in val_loader:
+        for x, y in validation_loader:
             if count >= eval_steps:
                 break
             x, y = x.to(device), y.to(device)
@@ -1072,12 +1072,12 @@ def _eval(
 def _sample(
     model: Bob,
     tokenizer: Tokenizer,
-    val_loader: DataLoader[tuple[torch.Tensor, torch.Tensor]],
+    validation_loader: DataLoader[tuple[torch.Tensor, torch.Tensor]],
     model_config: ModelConfig,
     device: str,
 ) -> str:
     model.eval()
-    x, _ = next(iter(val_loader))
+    x, _ = next(iter(validation_loader))
     prompt_ids = x[0, :3].tolist()
     output_ids = generate(
         model, prompt_ids, max_new_tokens=40, max_seq_len=model_config.max_seq_len, device=device
@@ -1357,7 +1357,7 @@ uv run python scripts/train.py --config configs/nano.yaml
 
 Expected: prints `Using device: mps` (or `cpu`), then training logs every 500 steps:
 ```
-step   500 | train_loss 2.1234 | val_loss 2.2345 | lr 3.00e-04 | 'Bob3\nTo be...'
+step   500 | train_loss 2.1234 | validation_loss 2.2345 | lr 3.00e-04 | 'Bob3\nTo be...'
 ```
 
 - [ ] **Step 3: Run full test suite one final time**
@@ -1387,7 +1387,7 @@ git commit -m "feat: add train.py entry point"
 | `TrainingConfig` frozen dataclass + `from_yaml` | Task 1 |
 | `configs/nano.yaml` extended with `training:` section | Task 1 + 6 |
 | `CharDataset` with `(x, y)` shifted pairs | Task 2 |
-| `build_dataloaders` returning `(train_loader, val_loader, tokenizer)` | Task 2 |
+| `build_dataloaders` returning `(train_loader, validation_loader, tokenizer)` | Task 2 |
 | `Tokenizer.chars` for vocab persistence | Task 2 |
 | `get_lr` cosine warmup schedule | Task 3 |
 | `save_checkpoint` / `load_latest_checkpoint` | Task 4 |

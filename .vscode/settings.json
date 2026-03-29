@@ -5,6 +5,10 @@
         "**/*.pyo": true
     },
     "editor.formatOnSave": true,
+    "python.analysis.typeCheckingMode": "off",
+    "mypy-type-checker.enabled": true,
+    "mypy-type-checker.path": ["uv"],
+    "mypy-type-checker.args": ["run", "mypy"],
     "[python]": {
         "editor.defaultFormatter": "charliermarsh.ruff",
         "editor.codeActionsOnSave": {

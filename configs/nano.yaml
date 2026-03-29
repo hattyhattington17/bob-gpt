@@ -1,5 +1,5 @@
 model:
-  vocab_size: 26
+  vocab_size: 91
   d_model: 48
   n_heads: 3
   n_layers: 3
@@ -10,7 +10,7 @@ model:
   tie_embeddings: true
 
 training:
-  data_path: data/input.txt
+  data_path: data/raw/shakespeare.txt
   train_split: 0.9
   batch_size: 32
   max_steps: 5000

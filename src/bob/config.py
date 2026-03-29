@@ -58,7 +58,6 @@ class TrainingConfig:
     grad_clip: float  # gradient clipping threshold
     eval_interval: int  # number of steps to run before evaluating the model on the validation set
     eval_steps: int  # number of batches to evaluate during validation
-    checkpoint_interval: int  # number of steps to run before saving a checkpoint
     checkpoint_dir: str  # directory to save checkpoints to
 
     @classmethod

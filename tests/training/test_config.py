@@ -30,7 +30,6 @@ training:
   grad_clip: 1.0
   eval_interval: 500
   eval_steps: 50
-  checkpoint_interval: 1000
   checkpoint_dir: checkpoints
 """
     config_file = tmp_path / "test.yaml"
@@ -49,7 +48,6 @@ training:
     assert config.grad_clip == pytest.approx(1.0)
     assert config.eval_interval == 500
     assert config.eval_steps == 50
-    assert config.checkpoint_interval == 1000
     assert config.checkpoint_dir == "checkpoints"
 
 
@@ -75,7 +73,6 @@ training:
   grad_clip: 1.0
   eval_interval: 500
   eval_steps: 50
-  checkpoint_interval: 1000
   checkpoint_dir: checkpoints
 """
     config_file = tmp_path / "test.yaml"

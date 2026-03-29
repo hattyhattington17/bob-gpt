@@ -4,7 +4,7 @@ model:
   n_heads: 3
   n_layers: 3
   d_ff: 192
-  max_seq_len: 10
+  max_seq_len: 256
   rope_theta: 10000.0
   norm_eps: 1.0e-6
   tie_embeddings: true
@@ -21,5 +21,4 @@ training:
   grad_clip: 1.0
   eval_interval: 500
   eval_steps: 50
-  checkpoint_interval: 1000
   checkpoint_dir: checkpoints

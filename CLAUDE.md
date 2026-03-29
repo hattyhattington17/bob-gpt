@@ -8,9 +8,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 uv sync                            # install deps
 uv run pytest                      # run all tests
 uv run pytest tests/test_foo.py    # run a single test file
-uv run ruff check src              # lint
-uv run ruff format src             # format
-uv run mypy src                    # type check
+uv run ruff check src tests        # lint
+uv run ruff format src tests       # format
+uv run mypy src tests              # type check
 uv run python scripts/generate.py --prompt "abcabc"   # run inference
 ```
 

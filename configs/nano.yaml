@@ -1,10 +1,24 @@
 model:
-  vocab_size: 26         
+  vocab_size: 91
   d_model: 48
-  n_heads: 3  
-  n_layers: 3          
-  d_ff: 192                  
-  max_seq_len: 10
+  n_heads: 3
+  n_layers: 3
+  d_ff: 192
+  max_seq_len: 256
   rope_theta: 10000.0
   norm_eps: 1.0e-6
   tie_embeddings: true
+
+training:
+  data_path: data/raw/shakespeare.txt
+  train_split: 0.9
+  batch_size: 32
+  max_steps: 5000
+  warmup_steps: 100
+  learning_rate: 3.0e-4
+  min_lr: 3.0e-5
+  weight_decay: 0.1
+  grad_clip: 1.0
+  eval_interval: 500
+  eval_steps: 50
+  checkpoint_dir: checkpoints

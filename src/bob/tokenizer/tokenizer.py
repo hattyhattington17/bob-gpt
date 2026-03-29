@@ -19,6 +19,11 @@ class Tokenizer:
         """Return vocabulary size."""
         return len(self._char_to_id)
 
+    @property
+    def chars(self) -> list[str]:
+        """Return the list of characters in the vocabulary, in ID order."""
+        return list(self._id_to_char)
+
     def encode(self, text: str) -> list[int]:
         """Encode text to a list of token IDs."""
         for ch in text:

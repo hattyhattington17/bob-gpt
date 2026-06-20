@@ -4,9 +4,8 @@ Usage:
     uv run python scripts/train.py --config configs/nano.yaml
 """
 
-from __future__ import annotations
-
 import argparse
+import logging
 from pathlib import Path
 
 import torch
@@ -17,6 +16,7 @@ from bob.training.trainer import train
 
 def main() -> None:
     """Parse args, detect device, and run the training loop."""
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     parser = argparse.ArgumentParser(description="Train Bob on bobified Shakespeare.")
     parser.add_argument("--config", required=True, help="Path to YAML config file.")
     args = parser.parse_args()
@@ -32,7 +32,7 @@ def main() -> None:
     else:
         device = "cpu"
 
-    print(f"Using device: {device}")
+    logging.info("Using device: %s", device)
     train(model_config, training_config, device)
 
 

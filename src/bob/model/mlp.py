@@ -41,6 +41,5 @@ class MLP(torch.nn.Module):
         g = a * b  # (B, T, d_ff)
 
         # project back to model dimension
-        g = self.W_out(g)  # (B, T, d_model)
-
-        return g
+        out: torch.Tensor = self.W_out(g)  # (B, T, d_model)
+        return out

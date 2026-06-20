@@ -36,7 +36,7 @@ class Bob(torch.nn.Module):
         Returns:
             Logits tensor with shape (B, T, vocab_size).
         """
-        hidden_state = self.embeddings(x)  # (B, T, d_model)
+        hidden_state: torch.Tensor = self.embeddings(x)  # (B, T, d_model)
 
         cos, sin = self.rope(hidden_state.shape[1])  # cos, sin each (T, d_head // 2)
 
@@ -45,8 +45,8 @@ class Bob(torch.nn.Module):
             hidden_state = layer(hidden_state, cos, sin)
 
         hidden_state = self.norm(hidden_state)  # (B, T, d_model)
-        logits = self.lm_head(hidden_state)  # (B, T, vocab_size)
-        return logits
+        out: torch.Tensor = self.lm_head(hidden_state)  # (B, T, vocab_size)
+        return out
 
 
 class TransformerBlock(torch.nn.Module):
@@ -85,5 +85,5 @@ class TransformerBlock(torch.nn.Module):
         m = self.mlp(v)
 
         # residual connection
-        result = y + m
+        result: torch.Tensor = y + m
         return result

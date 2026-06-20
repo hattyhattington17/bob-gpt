@@ -89,6 +89,5 @@ class SelfAttention(torch.nn.Module):
             z.shape[0], z.shape[1], self.n_heads * self.d_head
         )  # (B, T, n_heads * d_head)
         # apply learned output projection
-        z = self.W_out(z)  # (B, T, d_model)
-
-        return z
+        out: torch.Tensor = self.W_out(z)  # (B, T, d_model)
+        return out

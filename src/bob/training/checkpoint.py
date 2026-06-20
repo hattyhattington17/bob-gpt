@@ -1,7 +1,5 @@
 """Save and load model checkpoints and vocabulary."""
 
-from __future__ import annotations
-
 import json
 import math
 from pathlib import Path

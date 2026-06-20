@@ -1,7 +1,5 @@
 """Character-level dataset and dataloader construction."""
 
-from __future__ import annotations
-
 from pathlib import Path
 
 import torch

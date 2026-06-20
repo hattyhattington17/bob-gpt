@@ -27,9 +27,11 @@ class RoPE(torch.nn.Module):
 
         # precompute and store cos/sin for each theta
         # persistent=False: not learned params, recomputable from config, excluded from state_dict
+        self.rope_cos: torch.Tensor
         self.register_buffer(
             "rope_cos", thetas.cos(), persistent=False
         )  # (max_seq_len, d_head // 2)
+        self.rope_sin: torch.Tensor
         self.register_buffer(
             "rope_sin", thetas.sin(), persistent=False
         )  # (max_seq_len, d_head // 2)

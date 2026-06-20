@@ -1,8 +1,7 @@
 """Training loop for Bob."""
 
-from __future__ import annotations
-
 import itertools
+import logging
 
 import torch
 import torch.nn.functional as F
@@ -15,6 +14,8 @@ from bob.tokenizer.tokenizer import Tokenizer
 from bob.training.checkpoint import load_best_checkpoint, save_best_checkpoint, save_vocab
 from bob.training.dataset import build_dataloaders
 from bob.training.schedule import get_lr
+
+logger = logging.getLogger(__name__)
 
 
 def train(model_config: ModelConfig, config: TrainingConfig, device: str) -> None:
@@ -35,10 +36,11 @@ def train(model_config: ModelConfig, config: TrainingConfig, device: str) -> Non
     )
     save_vocab(tokenizer.chars, config.checkpoint_dir)
 
-    assert model_config.vocab_size == tokenizer.vocab_size, (
-        f"vocab_size in config ({model_config.vocab_size}) != tokenizer vocab_size "
-        f"({tokenizer.vocab_size}). Update configs/nano.yaml vocab_size to match."
-    )
+    if model_config.vocab_size != tokenizer.vocab_size:
+        raise ValueError(
+            f"vocab_size in config ({model_config.vocab_size}) != tokenizer vocab_size "
+            f"({tokenizer.vocab_size}). Update configs/nano.yaml vocab_size to match."
+        )
 
     model = Bob(model_config).to(device)
 
@@ -97,9 +99,13 @@ def train(model_config: ModelConfig, config: TrainingConfig, device: str) -> Non
                 model, validation_loader, config.eval_steps, model_config.vocab_size, device
             )
             sample = _sample(model, tokenizer, validation_loader, model_config, device)
-            print(
-                f"step {step + 1:5d} | train_loss {loss.item():.4f} | "
-                f"validation_loss {validation_loss:.4f} | lr {lr:.2e} | {sample!r}"
+            logger.info(
+                "step %5d | train_loss %.4f | validation_loss %.4f | lr %.2e | %r",
+                step + 1,
+                loss.item(),
+                validation_loss,
+                lr,
+                sample,
             )
             # store a new checkpoint if validation loss improved
             if validation_loss < best_validation_loss:

@@ -31,12 +31,12 @@ def test_get_lr_cosine_midpoint() -> None:
 
 
 def test_get_lr_at_max_steps_raises() -> None:
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         get_lr(step=1000, warmup_steps=100, max_steps=1000, max_lr=3e-4, min_lr=3e-5)
 
 
 def test_get_lr_beyond_max_steps_raises() -> None:
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         get_lr(step=9999, warmup_steps=100, max_steps=1000, max_lr=3e-4, min_lr=3e-5)
 
 

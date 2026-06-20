@@ -76,7 +76,7 @@ def train(model_config: ModelConfig, config: TrainingConfig, device: str) -> Non
 
         # clear gradients from the previous step out of the optimizer
         optimizer.zero_grad()
-        # compute gradients and write them into the parameters' .grad attributes 
+        # compute gradients and write them into the parameters' .grad attributes
         # for optimizer.step() to read
         loss.backward()  # type: ignore[no-untyped-call]
         # scale the gradients down if their norm exceeds config.grad_clip

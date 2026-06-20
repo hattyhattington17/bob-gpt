@@ -69,9 +69,7 @@ def test_build_dataloaders_batch_shape(tmp_path: Path) -> None:
     data_file = tmp_path / "input.txt"
     data_file.write_text(text)
 
-    train_loader, _, _ = build_dataloaders(
-        str(data_file), train_split=0.9, seq_len=8, batch_size=4
-    )
+    train_loader, _, _ = build_dataloaders(str(data_file), train_split=0.9, seq_len=8, batch_size=4)
 
     x, y = next(iter(train_loader))
     assert x.shape == (4, 8)

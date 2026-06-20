@@ -79,6 +79,7 @@ def test_train_resumes_from_checkpoint(tmp_path: Path) -> None:
 
     # read the step from the checkpoint to confirm it trained
     import torch
+
     ckpt = torch.load(str(tmp_path / "checkpoints" / "best.pt"), weights_only=False)
     step = int(ckpt["step"])
     assert step > 0, "checkpoint should record a non-zero step"

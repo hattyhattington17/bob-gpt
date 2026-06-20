@@ -52,8 +52,6 @@ def test_load_best_checkpoint_restores_weights(tmp_path: Path) -> None:
     load_best_checkpoint(model2, optimizer2, str(tmp_path))
 
 
-
-
 def test_save_best_checkpoint_overwrites(tmp_path: Path) -> None:
     model, optimizer = _make_model_and_optimizer()
     save_best_checkpoint(1.5, 100, model, optimizer, str(tmp_path))

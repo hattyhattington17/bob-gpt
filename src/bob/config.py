@@ -1,14 +1,13 @@
 """Load and validate model configuration."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Self
 
 import yaml
 
 
-@dataclass(frozen=True)  # immutable
+@dataclass(frozen=True, slots=True)  # immutable
 class ModelConfig:
     """Immutable configuration for the model architecture."""
 
@@ -21,29 +20,50 @@ class ModelConfig:
     rope_theta: float = 10000.0
     norm_eps: float = 1e-6
     tie_embeddings: bool = True
+    qk_norm: bool = False
+    head_dim: int | None = None
+    n_kv_heads: int | None = None
 
     @property
     def d_head(self) -> int:
-        """Return the dimension of each attention head."""
-        return self.d_model // self.n_heads
+        """Return the per-head dimension.
+
+        If head_dim was not provided in the config, this falls back to d_model // n_heads.
+        """
+        return self.head_dim if self.head_dim is not None else self.d_model // self.n_heads
+
+    @property
+    def kv_heads(self) -> int:
+        """Return the number of key-value heads.
+
+        If n_kv_heads was not provided in the config, this falls back to n_heads.
+        """
+        return self.n_kv_heads if self.n_kv_heads is not None else self.n_heads
 
     def __post_init__(self) -> None:
-        if self.d_model % self.n_heads != 0:
+        if self.head_dim is None and self.d_model % self.n_heads != 0:
             raise ValueError(
-                f"d_model ({self.d_model}) must be divisible by n_heads ({self.n_heads})"
+                f"d_model ({self.d_model}) must be divisible by n_heads ({self.n_heads}) "
+                "when head_dim is not set"
             )
+
         if self.d_head % 2 != 0:
             raise ValueError(f"d_head ({self.d_head}) must be even for RoPE")
 
+        if self.n_kv_heads is not None and self.n_heads % self.n_kv_heads != 0:
+            raise ValueError(
+                f"n_heads ({self.n_heads}) must be divisible by n_kv_heads ({self.n_kv_heads})"
+            )
+
     @classmethod
-    def from_yaml(cls, path: Path) -> ModelConfig:
+    def from_yaml(cls, path: Path) -> Self:
         """Load model config from a YAML file."""
         with open(path) as f:
             raw = yaml.safe_load(f)
         return cls(**raw["model"])
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class TrainingConfig:
     """Immutable configuration for the training loop."""
 
@@ -61,7 +81,7 @@ class TrainingConfig:
     checkpoint_dir: str  # directory to save checkpoints to
 
     @classmethod
-    def from_yaml(cls, path: Path) -> TrainingConfig:
+    def from_yaml(cls, path: Path) -> Self:
         """Load training config from a YAML file."""
         with open(path) as f:
             raw = yaml.safe_load(f)

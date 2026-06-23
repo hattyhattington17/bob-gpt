@@ -6,22 +6,22 @@ import torch
 class RoPE(torch.nn.Module):
     """Rotary positional embeddings.
 
-    Precomputes cos/sin buffers for each position j and coordinate pair index m.
+    Precomputes cos/sin buffers for each position j and coordinate pair index n.
     """
 
     def __init__(self, d_head: int, max_seq_len: int, frequency_base: float) -> None:
         super().__init__()
 
         # compute the rotation angle theta for each valid sequence position j
-        # and coordinate pair index m in {0, ..., d_head//2 - 1}
+        # and coordinate pair index n in {0, ..., d_head//2 - 1}
         # compute sin and cosine of each rotation angle and cache for reuse across heads and batches
 
-        # compute frequency omega_m for each pair of coordinates m in {0, ..., (d_head/2) - 1}
+        # compute frequency omega_n for each pair of coordinates n in {0, ..., (d_head/2) - 1}
         omegas = frequency_base ** (-torch.arange(0, d_head, 2) / d_head)  # (d_head // 2,)
 
         positions = torch.arange(max_seq_len)  # (max_seq_len,)
 
-        # θ_{j,m} = j * ω_m for all positions j and pair indices m
+        # θ_{j,n} = j * ω_n for all positions j and pair indices n
         # outer product: (max_seq_len,) x (d_head // 2,)
         thetas = torch.outer(positions, omegas)  # (max_seq_len, d_head // 2)
 
@@ -56,16 +56,18 @@ def apply_rotary_emb(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> t
     Returns:
         Tensor with rotary embeddings applied, shape (B, n_heads, T, d_head).
     """
-    # split input into consecutive coordinate pairs
-    # x1 = even indices (0, 2, 4, ...), x2 = odd indices (1, 3, 5, ...)
-    # keep all preceding dimensions (B, n_heads, T)
-    x1 = x[..., ::2]  # (B, n_heads, T, d_head // 2)
-    x2 = x[..., 1::2]  # (B, n_heads, T, d_head // 2)
+    d_head = x.shape[-1]
 
-    # each pair is x1[i], x2[i] for i in {0, ..., d_head/2 - 1}
-    # rotate each pair by theta for the position j and pair index i
-    # sin and cos are indexed by position j and pair index i — broadcast multiply directly
+    # split input into first half and second half, keep all preceding dimensions (B, n_heads, T)
 
+    # x1 = first half indices (0,...,(d_head // 2)-1)
+    x1 = x[..., : d_head // 2]  # (B, n_heads, T, d_head // 2)
+    # x2 = second half indices (d_head // 2, ..., d_head - 1)
+    x2 = x[..., d_head // 2 :]  # (B, n_heads, T, d_head // 2)
+
+    # d_head // 2 pairs - pair n is x1[n], x2[n] for n in {0, ..., d_head/2 - 1}
+    # rotate each pair by theta_{j,n}
+    # sin and cos are indexed by position j and pair n — broadcast multiply directly
     # reshape cos/sin to broadcast over batch and head dims
     cos = cos.to(x.dtype).unsqueeze(0).unsqueeze(0)  # (1, 1, T, d_head // 2)
     sin = sin.to(x.dtype).unsqueeze(0).unsqueeze(0)  # (1, 1, T, d_head // 2)
@@ -74,9 +76,5 @@ def apply_rotary_emb(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> t
     r1 = x1 * cos - x2 * sin  # (B, n_heads, T, d_head // 2)
     r2 = x1 * sin + x2 * cos  # (B, n_heads, T, d_head // 2)
 
-    # stack along a new last dimension — last dim is [r1_m, r2_m] for each pair m
-    stacked = torch.stack([r1, r2], dim=-1)  # (B, n_heads, T, d_head // 2, 2)
-
-    # flatten the last two dims to merge pairs back into a flat vector
-    # result has rotated pairs interleaved: (r1_0, r2_0, r1_1, r2_1, ...)
-    return stacked.flatten(-2)  # (B, n_heads, T, d_head)
+    # concatenate the rotated halves along the last dimension to restore original shape
+    return torch.concat([r1, r2], dim=-1)  # (B, n_heads, T, d_head)

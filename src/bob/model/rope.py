@@ -36,13 +36,19 @@ class RoPE(torch.nn.Module):
             "rope_sin", thetas.sin(), persistent=False
         )  # (max_seq_len, d_head // 2)
 
-    def forward(self, seq_len: int) -> tuple[torch.Tensor, torch.Tensor]:
-        """Return cos and sin cache buffers sliced to the current sequence length.
+    def forward(self, seq_len: int, offset: int = 0) -> tuple[torch.Tensor, torch.Tensor]:
+        """Return slice of cos and sin cache buffers.
+
+        Starts at offset position, sliced to the current sequence length.
+
+        Args:
+            seq_len: Current sequence length, must be <= max_seq_len.
+            offset: Position offset for start of current sequence in cos/sin cache
 
         Returns:
             cos, sin — both shape (seq_len, d_head // 2)
         """
-        return self.rope_cos[:seq_len], self.rope_sin[:seq_len]
+        return self.rope_cos[offset : offset + seq_len], self.rope_sin[offset : offset + seq_len]
 
 
 def apply_rotary_emb(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:

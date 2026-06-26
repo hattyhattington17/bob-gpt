@@ -49,6 +49,23 @@ def test_rope_uses_rotate_half_pairing() -> None:
     torch.testing.assert_close(out, expected, rtol=1e-5, atol=1e-5)
 
 
+def test_offset_slices_absolute_positions() -> None:
+    rope = RoPE(d_head=8, max_seq_len=16, frequency_base=10000.0)
+    cos_full, sin_full = rope(5)
+    # one position at offset p must equal row p of the unoffset cache
+    cos_one, sin_one = rope(1, offset=3)
+    torch.testing.assert_close(cos_one[0], cos_full[3])
+    torch.testing.assert_close(sin_one[0], sin_full[3])
+
+
+def test_offset_zero_matches_default() -> None:
+    rope = RoPE(d_head=8, max_seq_len=16, frequency_base=10000.0)
+    a_cos, a_sin = rope(6)
+    b_cos, b_sin = rope(6, offset=0)
+    torch.testing.assert_close(a_cos, b_cos)
+    torch.testing.assert_close(a_sin, b_sin)
+
+
 def test_rope_relative_position_invariance() -> None:
     # RoPE's defining property: <rotate(u, m), rotate(u, n)> depends only on m - n.
     rope = RoPE(d_head=8, max_seq_len=16, frequency_base=10000.0)

@@ -1,7 +1,5 @@
 """Cosine learning rate schedule with linear warmup."""
 
-from __future__ import annotations
-
 import math
 
 
@@ -27,7 +25,8 @@ def get_lr(
     Returns:
         Learning rate for this step.
     """
-    assert step < max_steps, f"step {step} >= max_steps {max_steps}"
+    if step >= max_steps:
+        raise ValueError(f"step {step} >= max_steps {max_steps}")
     if step < warmup_steps:
         return max_lr * step / warmup_steps
     progress = (step - warmup_steps) / (max_steps - warmup_steps)

@@ -15,10 +15,10 @@ class MLP(torch.nn.Module):
     def __init__(self, config: ModelConfig) -> None:
         super().__init__()
 
-        # W_a, W_b shape (d_model, d_ff)
+        # W_a, W_b: d_model -> d_ff
         self.W_a = torch.nn.Linear(config.d_model, config.d_ff, bias=False)
         self.W_b = torch.nn.Linear(config.d_model, config.d_ff, bias=False)
-        # W_out shape (d_ff, d_model)
+        # W_out: d_ff -> d_model
         self.W_out = torch.nn.Linear(config.d_ff, config.d_model, bias=False)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -30,17 +30,16 @@ class MLP(torch.nn.Module):
         Returns:
             MLP output, shape (B, T, d_model).
         """
-        # project into gate and candidate feature tensors a,b shape (B,T, d_ff)
+        # project into candidate and gate feature tensors a,b shape (B,T, d_ff)
         a = self.W_a(x)
         b = self.W_b(x)
 
         # construct gate vector by applying SiLU nonlinearity to b
-        b = b * torch.sigmoid(b)  # (B, T, d_ff)
+        b = torch.nn.functional.silu(b)  # (B, T, d_ff)
 
         # apply to candidate features via elementwise multiplication
         g = a * b  # (B, T, d_ff)
 
         # project back to model dimension
-        g = self.W_out(g)  # (B, T, d_model)
-
-        return g
+        out: torch.Tensor = self.W_out(g)  # (B, T, d_model)
+        return out

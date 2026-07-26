@@ -1,0 +1,17 @@
+
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "generate",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/generate.py",
+      "args": ["--prompt", "abcabc"],
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false
+    }
+  ]
+}

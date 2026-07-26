@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import torch
+
 from bob.config import ModelConfig, TrainingConfig
 from bob.training.trainer import train
 
@@ -73,13 +75,10 @@ def test_train_resumes_from_checkpoint(tmp_path: Path) -> None:
         checkpoint_dir=str(tmp_path / "checkpoints"),
     )
 
-    # first run: trains to step 4
     train(model_config, training_config, device="cpu")
     assert (tmp_path / "checkpoints" / "best.pt").exists()
 
     # read the step from the checkpoint to confirm it trained
-    import torch
-
     ckpt = torch.load(str(tmp_path / "checkpoints" / "best.pt"), weights_only=False)
     step = int(ckpt["step"])
     assert step > 0, "checkpoint should record a non-zero step"

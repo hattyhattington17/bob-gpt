@@ -1,8 +1,6 @@
 """Training loop for Bob."""
 
-from __future__ import annotations
-
-import itertools
+import logging
 
 import torch
 import torch.nn.functional as F
@@ -15,6 +13,8 @@ from bob.tokenizer.tokenizer import Tokenizer
 from bob.training.checkpoint import load_best_checkpoint, save_best_checkpoint, save_vocab
 from bob.training.dataset import build_dataloaders
 from bob.training.schedule import get_lr
+
+logger = logging.getLogger(__name__)
 
 
 def train(model_config: ModelConfig, config: TrainingConfig, device: str) -> None:
@@ -30,30 +30,32 @@ def train(model_config: ModelConfig, config: TrainingConfig, device: str) -> Non
         config: Training hyperparameters.
         device: Torch device string, e.g. "cpu" or "mps".
     """
+    # construct dataloaders and tokenizer from the training text, train on max_seq_len tokens
     train_loader, validation_loader, tokenizer = build_dataloaders(
         config.data_path, config.train_split, model_config.max_seq_len, config.batch_size
     )
+    # save the tokenizer vocab to the checkpoint directory for later inference
     save_vocab(tokenizer.chars, config.checkpoint_dir)
-
-    assert model_config.vocab_size == tokenizer.vocab_size, (
-        f"vocab_size in config ({model_config.vocab_size}) != tokenizer vocab_size "
-        f"({tokenizer.vocab_size}). Update configs/nano.yaml vocab_size to match."
-    )
-
+    # ensure embedding table and LM head are the same size as the tokenizer vocab
+    # model must have been trained with the same vocab size as the tokenizer
+    if model_config.vocab_size != tokenizer.vocab_size:
+        raise ValueError(
+            f"vocab_size in config ({model_config.vocab_size}) != tokenizer vocab_size "
+            f"({tokenizer.vocab_size}). Update configs/nano.yaml vocab_size to match."
+        )
+    # move model (all trainable parameters) to the device
     model = Bob(model_config).to(device)
 
-    decay_params = [
-        p
-        for n, p in model.named_parameters()
-        if p.ndim >= 2 and "embed" not in n and "norm" not in n
-    ]
-    # weight decay on embeddings reduces expressiveness of token representations
-    no_decay_params = [
-        p
-        for n, p in model.named_parameters()
-        if not (p.ndim >= 2 and "embed" not in n and "norm" not in n)
-    ]
-    # tell optimizer which parameters to apply weight decay to
+    # weight decay applied to all params except embedding and norms
+    # norm neutral value is 1
+    decay_params, no_decay_params = [], []
+    for n, p in model.named_parameters():
+        if p.ndim >= 2 and "embed" not in n and "norm" not in n:
+            decay_params.append(p)
+        else:
+            no_decay_params.append(p)
+
+    # attach parameters to AdamW optimizer with weight decay
     optimizer = torch.optim.AdamW(
         [
             {"params": decay_params, "weight_decay": config.weight_decay},
@@ -62,22 +64,33 @@ def train(model_config: ModelConfig, config: TrainingConfig, device: str) -> Non
         lr=config.learning_rate,
     )
 
+    # resume from best checkpoint if one exists
     start_step, best_validation_loss = load_best_checkpoint(model, optimizer, config.checkpoint_dir)
-    train_iter = itertools.cycle(train_loader)
 
+    # create iterator over training batches
+    train_iter = iter(train_loader)
+
+    # training loop
     for step in range(start_step, config.max_steps):
         model.train()
-        # load a training pair to the gpu
-        x, y = next(train_iter)
+        # at end of dataset create new iterator to start with newly shuffled training batches
+        try:
+            x, y = next(train_iter)
+        except StopIteration:
+            train_iter = iter(train_loader)
+            x, y = next(train_iter)
+
         x, y = x.to(device), y.to(device)  # (B, T), (B, T)
 
-        logits = model(x)  # (B, T, vocab_size)
-        loss = F.cross_entropy(logits.view(-1, model_config.vocab_size), y.view(-1))  # (B*T,)
+        # compute logits over all positions in the input sequence x
+        logits = model(x, padding_mask=torch.ones_like(x, dtype=torch.long))  # (B, T, vocab_size)
+        logits = logits.flatten(0, 1)  # (B*T, vocab_size)
+        # compute mean cross entropy loss between predicted logits and true labels y
+        loss = F.cross_entropy(logits, y.flatten(), reduction="mean")  # scalar
 
-        # clear gradients from the previous step out of the optimizer
+        # clear gradients from previous step, otherwise they accumulate
         optimizer.zero_grad()
-        # compute gradients and write them into the parameters' .grad attributes
-        # for optimizer.step() to read
+        # compute gradients for this step, write to parameter .grad attributes
         loss.backward()  # type: ignore[no-untyped-call]
         # scale the gradients down if their norm exceeds config.grad_clip
         torch.nn.utils.clip_grad_norm_(model.parameters(), config.grad_clip)
@@ -88,20 +101,26 @@ def train(model_config: ModelConfig, config: TrainingConfig, device: str) -> Non
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
 
-        # read the gradients and take an optimization step
+        # read each parameter's .grad attribute and update the parameter in place
         optimizer.step()
 
-        # check if it's time to evaluate on the validation set and log progress
+        # every eval_interval steps, evaluate the model on the eval set and log
+        # training and eval loss, learning rate, and a generated sample from the model
         if (step + 1) % config.eval_interval == 0:
             validation_loss = _eval(
                 model, validation_loader, config.eval_steps, model_config.vocab_size, device
             )
-            sample = _sample(model, tokenizer, validation_loader, model_config, device)
-            print(
-                f"step {step + 1:5d} | train_loss {loss.item():.4f} | "
-                f"validation_loss {validation_loss:.4f} | lr {lr:.2e} | {sample!r}"
+            sample = _sample(model, tokenizer, validation_loader, device)
+            logger.info(
+                "step %5d | train_loss %.4f | validation_loss %.4f | lr %.2e | %r",
+                step + 1,
+                loss.item(),
+                validation_loss,
+                lr,
+                sample,
             )
-            # store a new checkpoint if validation loss improved
+
+            # update best checkpoint if validation loss improved
             if validation_loss < best_validation_loss:
                 best_validation_loss = validation_loss
                 save_best_checkpoint(
@@ -116,7 +135,9 @@ def _eval(
     vocab_size: int,
     device: str,
 ) -> float:
-    """Evaluate model on validation_loader for up to eval_steps batches.
+    """Evaluate model on the eval set for eval_steps batches and return mean cross-entropy loss.
+
+    Takes mean over all tokens instead of all batches to account for last batch being shorter.
 
     Args:
         model: Model to evaluate.
@@ -126,30 +147,33 @@ def _eval(
         device: Torch device string.
 
     Returns:
-        Mean cross-entropy loss over evaluated batches.
+        Mean cross-entropy loss over all eval_steps*B*T tokens.
     """
-    # run model in eval mode, disables dropout and other training-specific behavior
     model.eval()
     total_loss = 0.0
-    count = 0
+    total_tokens = 0
     # average the loss across eval_steps batches
     with torch.inference_mode():
-        for x, y in validation_loader:
-            if count >= eval_steps:
+        for step, (x, y) in enumerate(validation_loader):
+            if step >= eval_steps:
                 break
             x, y = x.to(device), y.to(device)  # (B, T), (B, T)
-            logits = model(x)  # (B, T, vocab_size)
+            logits = model(
+                x, padding_mask=torch.ones_like(x, dtype=torch.long)
+            )  # (B, T, vocab_size)
             # compute batch cross entropy loss on validation batch and accumulate it into total_loss
-            total_loss += F.cross_entropy(logits.view(-1, vocab_size), y.view(-1)).item()  # (B*T,)
-            count += 1
-    return total_loss / count if count > 0 else 0.0
+            total_loss += (
+                F.cross_entropy(logits.view(-1, vocab_size), y.view(-1)).item() * y.numel()
+            )
+            total_tokens += y.numel()  # B*T
+
+    return total_loss / total_tokens if total_tokens > 0 else 0.0
 
 
 def _sample(
     model: Bob,
     tokenizer: Tokenizer,
     validation_loader: DataLoader[tuple[torch.Tensor, torch.Tensor]],
-    model_config: ModelConfig,
     device: str,
 ) -> str:
     """Generate a short sample from the first validation batch for logging.
@@ -158,7 +182,6 @@ def _sample(
         model: Model to sample from.
         tokenizer: Tokenizer for decoding.
         validation_loader: Used to get a prompt.
-        model_config: Model config for max_seq_len.
         device: Torch device string.
 
     Returns:
@@ -166,8 +189,6 @@ def _sample(
     """
     model.eval()
     x, _ = next(iter(validation_loader))  # x: (B, T)
-    prompt_ids = x[0, :3].tolist()  # (3,) — first 3 tokens of first sequence
-    output_ids = generate(
-        model, prompt_ids, max_new_tokens=40, max_seq_len=model_config.max_seq_len, device=device
-    )
-    return tokenizer.decode(output_ids)
+    prompt_ids = x[0, :3].unsqueeze(0).to(device)  # (1, 3) — first 3 tokens of first sequence
+    output_ids = generate(model, prompt_ids, max_new_tokens=5)
+    return tokenizer.decode(output_ids[0].tolist())  # decode first sequence in batch

@@ -26,11 +26,10 @@ class RMSNorm(torch.nn.Module):
         """
         # compute RMS across the last dimension
         # keepdim=True to maintain dimensions for broadcasting
-        # cast to float for numerical stability during sqrt, then back to original dtype
-        rms = torch.sqrt(x.float().pow(2).mean(dim=-1, keepdim=True) + self.epsilon).to(
-            x.dtype
-        )  # (B, T, 1)
+        # cast to float for numerical stability during sqrt
+        rms = torch.sqrt(x.float().pow(2).mean(dim=-1, keepdim=True) + self.epsilon)  # (B, T, 1)
+        dtype = x.dtype  # save original dtype to cast back later
         x = x / rms  # (B, T, d_model)
-        # scale by the learned weight parameter
-        x = x * self.gamma  # (B, T, d_model)
+        # cast back to original dtype and scale by the learned weight parameter gamma
+        x = x.to(dtype) * self.gamma  # (B, T, d_model)
         return x

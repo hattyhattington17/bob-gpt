@@ -1,5 +1,7 @@
 """Character-level tokenizer mapping characters to IDs."""
 
+from typing import Self
+
 
 class Tokenizer:
     """Character-level tokenizer mapping characters to integer IDs."""
@@ -10,7 +12,7 @@ class Tokenizer:
         self._id_to_char = list(chars)  # can index directly by ID to get char
 
     @classmethod
-    def from_text(cls, text: str) -> "Tokenizer":
+    def from_text(cls, text: str) -> Self:
         """Initialize the tokenizer with a vocab of all unique characters in the string."""
         return cls(sorted(set(text)))
 

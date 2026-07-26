@@ -1,12 +1,11 @@
-"""Entry point for training Bob on bobified Shakespeare text.
+"""Training script.
 
 Usage:
     uv run python scripts/train.py --config configs/nano.yaml
 """
 
-from __future__ import annotations
-
 import argparse
+import logging
 from pathlib import Path
 
 import torch
@@ -17,10 +16,14 @@ from bob.training.trainer import train
 
 def main() -> None:
     """Parse args, detect device, and run the training loop."""
-    parser = argparse.ArgumentParser(description="Train Bob on bobified Shakespeare.")
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+
+    # parse command line arguments
+    parser = argparse.ArgumentParser(description="Train Bob on Shakespeare.")
     parser.add_argument("--config", required=True, help="Path to YAML config file.")
     args = parser.parse_args()
 
+    # load config for model and training
     config_path = Path(args.config)
     model_config = ModelConfig.from_yaml(config_path)
     training_config = TrainingConfig.from_yaml(config_path)
@@ -32,7 +35,7 @@ def main() -> None:
     else:
         device = "cpu"
 
-    print(f"Using device: {device}")
+    logging.info("Using device: %s", device)
     train(model_config, training_config, device)
 
 

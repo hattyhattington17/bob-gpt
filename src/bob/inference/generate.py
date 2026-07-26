@@ -2,40 +2,60 @@
 
 import torch
 
+from bob.inference.kv_cache import KVCache
 from bob.inference.sampler import greedy
 from bob.model.transformer import Bob
 
 
-# disable gradient tracking since we're only doing inference
+# disable gradient computation
 @torch.inference_mode()
 def generate(
     model: Bob,
-    token_ids: list[int],
+    input_ids: torch.Tensor,
     max_new_tokens: int,
-    max_seq_len: int,
-    device: str,
-) -> list[int]:
-    """Autoregressively generate tokens given a prompt.
+) -> torch.Tensor:
+    """Batched autoregressive token generation with incremental decode using a KV cache.
 
     Args:
-        model: The Bob model in eval mode (training behavior like dropout is disabled).
-        token_ids: List of token ids with shape (T,).
+        model: The model in eval mode.
+        input_ids: Left padded tensor of prefill sequence token ids (B,T).
         max_new_tokens: Max number of tokens to generate.
-        max_seq_len: Maximum context window length, truncates input if exceeded.
-        device: Device to run the model on, e.g. "cpu" or "mps".
 
     Returns:
-        Full sequence including prompt as a list of token ids.
+        Full generated sequence including prompt as a tensor of token ids (B, T + max_new_tokens).
     """
-    # batch dimension of 1 added since the model expects batches
-    x = torch.tensor([token_ids], dtype=torch.long).to(device)  # (1, T)
+    if input_ids.shape[1] + max_new_tokens > model.config.max_seq_len:
+        raise ValueError(
+            f"Prompt length {input_ids.shape[1]} plus max_new_tokens {max_new_tokens} "
+            f"exceeds max_seq_len {model.config.max_seq_len}. "
+            "Truncate the prompt or increase max_seq_len."
+        )
 
+    param = next(model.parameters())
+    # initialize KV cache for incremental decode
+    kv_cache = KVCache(
+        model.config, batch_size=input_ids.shape[0], device=param.device, dtype=param.dtype
+    )
+
+    # todo - padding mask should be supplied by tokenizer
+    # append for each new token generated, pass through to model to compute absolute positions
+    padding_mask = torch.ones_like(input_ids, dtype=torch.long)  # (B, T)
+
+    # prefill - processes whole prefill sequence and fills KV cache for incremental decode
+    model_input = input_ids  # (B, T)
+    # autoregressive decode loop
     for _ in range(max_new_tokens):
-        # take last max_seq_len tokens as input to the model
-        x = x[:, -max_seq_len:]  # (1, T)
-        logits = model(x)  # (1, T, vocab_size)
-        # slice to the last position and sample the next token id
-        next_token = greedy(logits[0, -1, :])  # logits[0, -1, :] is (vocab_size,)
-        x = torch.cat([x, torch.tensor([[next_token]], device=x.device)], dim=1)  # (1, T+1)
+        logits = model(
+            model_input, padding_mask=padding_mask, kv_cache=kv_cache
+        )  # (B, T, vocab_size), first prefill round will have T=prefill length, after that T=1
 
-    return x[0].tolist()
+        # todo - implement other sampling strategies and EOS token handling
+        model_input = greedy(logits)  # (B, 1)
+
+        # append the sampled token to the sequence
+        input_ids = torch.cat((input_ids, model_input), dim=1)  # (B, kv_length + 1)
+        padding_mask = torch.cat(
+            (padding_mask, torch.ones_like(model_input, dtype=torch.long)), dim=1
+        )
+
+    return input_ids  # (B, T + max_new_tokens)

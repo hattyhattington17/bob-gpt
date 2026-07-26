@@ -37,4 +37,4 @@ Bob is a from-scratch GPT built with PyTorch. The model is a standard decoder-on
 
 # Gotchas
 - pay close attention to precision in computations
- 
+

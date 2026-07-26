@@ -9,7 +9,8 @@ from bob.model.rope import RoPE, apply_rotary_emb
 
 def test_rope_position_zero_is_identity() -> None:
     rope = RoPE(d_head=8, max_seq_len=16, frequency_base=10000.0)
-    cos, sin = rope(4)
+    rope_absolute_positions = torch.arange(4).unsqueeze(0).repeat(2, 1)  # (B, T)
+    cos, sin = rope(rope_absolute_positions)
     x = torch.randn(2, 3, 4, 8)  # (B, n_heads, T, d_head)
     out = apply_rotary_emb(x, cos, sin)
     # theta at position 0 is 0, so the first sequence position is unrotated
@@ -18,7 +19,8 @@ def test_rope_position_zero_is_identity() -> None:
 
 def test_rope_preserves_vector_norm() -> None:
     rope = RoPE(d_head=8, max_seq_len=16, frequency_base=10000.0)
-    cos, sin = rope(5)
+    rope_absolute_positions = torch.arange(5).unsqueeze(0).repeat(2, 1)  # (B, T)
+    cos, sin = rope(rope_absolute_positions)
     x = torch.randn(2, 3, 5, 8)
     out = apply_rotary_emb(x, cos, sin)
     torch.testing.assert_close(out.norm(dim=-1), x.norm(dim=-1))
@@ -31,7 +33,8 @@ def test_rope_uses_rotate_half_pairing() -> None:
     half = d_head // 2
     seq_len = 3
     rope = RoPE(d_head=d_head, max_seq_len=8, frequency_base=base)
-    cos, sin = rope(seq_len)
+    rope_absolute_positions = torch.arange(seq_len).unsqueeze(0)  # (1, T)
+    cos, sin = rope(rope_absolute_positions)
 
     x = torch.arange(1, seq_len * d_head + 1, dtype=torch.float32).reshape(1, 1, seq_len, d_head)
     out = apply_rotary_emb(x, cos, sin)
@@ -49,27 +52,11 @@ def test_rope_uses_rotate_half_pairing() -> None:
     torch.testing.assert_close(out, expected, rtol=1e-5, atol=1e-5)
 
 
-def test_offset_slices_absolute_positions() -> None:
-    rope = RoPE(d_head=8, max_seq_len=16, frequency_base=10000.0)
-    cos_full, sin_full = rope(5)
-    # one position at offset p must equal row p of the unoffset cache
-    cos_one, sin_one = rope(1, offset=3)
-    torch.testing.assert_close(cos_one[0], cos_full[3])
-    torch.testing.assert_close(sin_one[0], sin_full[3])
-
-
-def test_offset_zero_matches_default() -> None:
-    rope = RoPE(d_head=8, max_seq_len=16, frequency_base=10000.0)
-    a_cos, a_sin = rope(6)
-    b_cos, b_sin = rope(6, offset=0)
-    torch.testing.assert_close(a_cos, b_cos)
-    torch.testing.assert_close(a_sin, b_sin)
-
-
 def test_rope_relative_position_invariance() -> None:
     # RoPE's defining property: <rotate(u, m), rotate(u, n)> depends only on m - n.
     rope = RoPE(d_head=8, max_seq_len=16, frequency_base=10000.0)
-    cos, sin = rope(10)
+    rope_absolute_positions = torch.arange(10).unsqueeze(0)  # (1, T)
+    cos, sin = rope(rope_absolute_positions)
     u = torch.randn(1, 1, 1, 8)
     x = u.expand(1, 1, 10, 8).contiguous()  # same vector at every position
     rotated = apply_rotary_emb(x, cos, sin)  # (1, 1, 10, 8)

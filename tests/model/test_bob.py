@@ -13,7 +13,7 @@ def test_nano_config_forwards() -> None:
     model = Bob(config)
     seq_len = 12
     ids = torch.randint(0, config.vocab_size, (2, seq_len))
-    logits = model(ids)
+    logits = model(ids, padding_mask=torch.ones(2, seq_len, dtype=torch.long))
     assert logits.shape == (2, seq_len, config.vocab_size)
 
 
@@ -32,7 +32,7 @@ def test_gqa_qk_norm_config_forwards() -> None:
     model = Bob(config)
     seq_len = 10
     ids = torch.randint(0, config.vocab_size, (3, seq_len))
-    logits = model(ids)
+    logits = model(ids, padding_mask=torch.ones(3, seq_len, dtype=torch.long))
     assert logits.shape == (3, seq_len, config.vocab_size)
 
 
@@ -50,7 +50,7 @@ def test_backward_produces_finite_grads() -> None:
     )
     model = Bob(config)
     ids = torch.randint(0, config.vocab_size, (2, 8))
-    logits = model(ids)
+    logits = model(ids, padding_mask=torch.ones(2, 8, dtype=torch.long))
     loss = logits.float().log_softmax(dim=-1).mean()
     loss.backward()
     grads = [p.grad for p in model.parameters() if p.grad is not None]

@@ -75,7 +75,6 @@ def test_train_resumes_from_checkpoint(tmp_path: Path) -> None:
         checkpoint_dir=str(tmp_path / "checkpoints"),
     )
 
-    # first run: trains to step 4
     train(model_config, training_config, device="cpu")
     assert (tmp_path / "checkpoints" / "best.pt").exists()
 

@@ -25,6 +25,8 @@ def save_best_checkpoint(
     """
     Path(checkpoint_dir).mkdir(parents=True, exist_ok=True)
     path = Path(checkpoint_dir) / "best.pt"
+    # write to a temp file then rename, so a crash mid-save leaves the previous best.pt intact
+    tmp_path = path.with_suffix(".pt.tmp")
     torch.save(
         {
             "validation_loss": validation_loss,
@@ -32,8 +34,9 @@ def save_best_checkpoint(
             "model_state_dict": model.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
         },
-        path,
+        tmp_path,
     )
+    tmp_path.replace(path)
 
 
 def load_best_checkpoint(
@@ -55,8 +58,9 @@ def load_best_checkpoint(
     path = ckpt_dir / "best.pt"
     if not path.exists():
         return 0, math.inf
-    # weights_only=False required for unpickler to handle saved progress file
-    ckpt = torch.load(path, weights_only=False)
+
+    # load to cpu then copy onto available device
+    ckpt = torch.load(path, map_location="cpu")
     model.load_state_dict(ckpt["model_state_dict"])
     optimizer.load_state_dict(ckpt["optimizer_state_dict"])
     return int(ckpt["step"]), float(ckpt["validation_loss"])

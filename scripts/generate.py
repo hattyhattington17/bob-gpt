@@ -1,4 +1,4 @@
-"""Main script to run the model and generate text from a prompt."""
+"""Main script to run the model on a prompt and generate max_new_tokens tokens."""
 
 import argparse
 from pathlib import Path
@@ -12,11 +12,12 @@ from bob.tokenizer.tokenizer import Tokenizer
 from bob.training.checkpoint import load_vocab
 
 CONFIG_PATH = Path(__file__).parent.parent / "configs" / "nano.yaml"
+CHECKPOINT_DIR = Path(__file__).parent.parent / "checkpoints"
 MAX_NEW_TOKENS = 200
 
 
 def main() -> None:
-    """Main function to run the script."""
+    """Run the model on a prompt and generate max_new_tokens tokens."""
     # load args
     parser = argparse.ArgumentParser()
     parser.add_argument("--prompt", required=True)
@@ -26,21 +27,23 @@ def main() -> None:
     config = ModelConfig.from_yaml(CONFIG_PATH)
 
     # Load the tokenizer from the saved vocab
-    chars = load_vocab("checkpoints")
+    chars = load_vocab(CHECKPOINT_DIR)
     tokenizer = Tokenizer(chars)
-    input_token_ids = tokenizer.encode(args.prompt)
 
     # Load the model and checkpoint
     device = "mps" if torch.backends.mps.is_available() else "cpu"
     model = Bob(config).to(device)
-    ckpt = torch.load(Path("checkpoints") / "best.pt", weights_only=False, map_location=device)
+    ckpt = torch.load(CHECKPOINT_DIR / "best.pt", map_location=device)
     model.load_state_dict(ckpt["model_state_dict"])
-    model.eval()  # eval mode - disable dropout
+    model.eval()  # eval mode - sets self.training = False on all submodules
 
-    # generate tokens after the input prompt - B=1
+    # model input length T=len(input_token_ids)
+    input_token_ids = tokenizer.encode(args.prompt)
+    # batch size B=1
+    # generate max_new_tokens tokens after the input sequence
     output_token_ids = generate(
-        model, torch.tensor([input_token_ids], dtype=torch.long).to(device), args.max_new_tokens
-    )  # (B, T)
+        model, torch.tensor([input_token_ids], dtype=torch.long, device=device), args.max_new_tokens
+    )  # (B, T + max_new_tokens)
     print(tokenizer.decode(output_token_ids[0].tolist()))
 
 

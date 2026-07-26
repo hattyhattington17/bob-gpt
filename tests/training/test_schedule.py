@@ -41,7 +41,7 @@ def test_get_lr_beyond_max_steps_raises() -> None:
 
 
 def test_get_lr_is_monotone_decreasing_after_warmup() -> None:
-    steps = list(range(100, 1000, 50))  # up to 999 (last valid step when max_steps=1000)
+    steps = list(range(100, 1000, 50))
     lrs = [get_lr(s, warmup_steps=100, max_steps=1000, max_lr=3e-4, min_lr=3e-5) for s in steps]
     for a, b in zip(lrs, lrs[1:], strict=False):
         assert a >= b

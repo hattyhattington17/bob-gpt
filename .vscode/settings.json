@@ -5,7 +5,8 @@
         "**/*.pyo": true
     },
     "editor.formatOnSave": true,
-    "python.analysis.typeCheckingMode": "basic",
+    "python.analysis.typeCheckingMode": "off",
+    "python.analysis.diagnosticMode": "workspace",
     "python.analysis.extraPaths": ["${workspaceFolder}/src"],
     "python.autoComplete.extraPaths": ["${workspaceFolder}/src"],
     "python.testing.pytestEnabled": true,
